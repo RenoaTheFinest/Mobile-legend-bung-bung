@@ -12,7 +12,7 @@ local WebhookTab = Window:CreateTab("Webhook", nil)
 local config = getgenv().config or {}
 
 if not config.PRIVATE_WEBHOOK_URL or config.PRIVATE_WEBHOOK_URL == "" then
-    WebhookTab:CreateSection("⚠️ Webhook Not Configured")
+    WebhookTab:CreateSection("Webhook Not Configured")
     WebhookTab:CreateLabel("Please set your webhook in the config before executing!")
     WebhookTab:CreateLabel("Add this BEFORE the loadstring in your executor:")
     WebhookTab:CreateLabel([[getgenv().config = {
@@ -39,7 +39,7 @@ local DISCORD_USER_ID = config.DISCORD_USER_ID or ""
 
 local request = http_request or request or (syn and syn.request)
 if not request then
-    WebhookTab:CreateSection("❌ Error")
+    WebhookTab:CreateSection("Error")
     WebhookTab:CreateLabel("Your executor doesn't support webhooks!")
     return
 end
@@ -201,21 +201,21 @@ local function send(petName,eggName,ex)
     local img=getImage(petName, ex)
 
     local embed={
-        title="🎉 Congrats You Hatched A "..variantText.." "..rarity.." "..petName.."!",
+        title="Congrats You Hatched A "..variantText.." "..rarity.." "..petName.."!",
         color=color,
 
         fields={
             {
-                name="•User Info",
+                name="* User Info",
                 value=
-                    "👤 Name : "..player.Name.."\n"..
-                    "🪙 Coin : "..coins.."\n"..
-                    "💎 Gems : "..gems.."\n"..
-                    "🥚 Egg Hatched : "..opened,
+                    "Name : "..player.Name.."\n"..
+                    "Coin : "..coins.."\n"..
+                    "Gems : "..gems.."\n"..
+                    "Egg Hatched : "..opened,
                 inline=false
             },
             {
-                name="🐾 Pet Info",
+                name="Pet Info",
                 value=
                     "Odds : "..odds.."\n"..
                     "Exist : "..exist,
@@ -224,7 +224,7 @@ local function send(petName,eggName,ex)
         },
 
         footer={
-            text="Renoa The Finest has Blessed You! • "..os.date("%Y-%m-%d %H:%M:%S")
+            text="Renoa The Finest has Blessed You! * "..os.date("%Y-%m-%d %H:%M:%S")
         }
     }
 
@@ -239,6 +239,56 @@ local function send(petName,eggName,ex)
 
     process()
 end
+
+-- ======================================
+-- ONLINE PING (EVERY 30 MINUTES)
+-- ======================================
+local startTime = os.time()
+
+task.spawn(function()
+    while true do
+        task.wait(1800) -- 30 minutes
+        
+        local elapsed = os.time() - startTime
+        local hours = math.floor(elapsed / 3600)
+        local minutes = math.floor((elapsed % 3600) / 60)
+        
+        local data = LocalData:Get()
+        local coins = data and formatNum(data.Coins or 0) or "0"
+        local gems = data and formatNum(data.Gems or 0) or "0"
+        
+        local leaderstats = player:FindFirstChild("leaderstats")
+        local bubbles = "0"
+        local hatches = "0"
+        if leaderstats then
+            for _, stat in ipairs(leaderstats:GetChildren()) do
+                if stat.Name:find("Bubble") then
+                    bubbles = formatNum(stat.Value)
+                end
+                if stat.Name:find("Hatches") then
+                    hatches = formatNum(stat.Value)
+                end
+            end
+        end
+        
+        table.insert(queue,{
+            content = (DISCORD_USER_ID ~= "") and "<@"..DISCORD_USER_ID..">" or nil,
+            embeds = {{
+                title = "Still Online!",
+                description =
+                    "**" .. player.Name .. "** is still online!\n\n" ..
+                    "🟢Online: " .. hours .. "h " .. minutes .. "m\n" ..
+                    "🪙Coins: " .. coins .. "\n" ..
+                    "💎Gems: " .. gems .. "\n" ..
+                    "🟣Bubbles: " .. bubbles .. "\n" ..
+                    "🥚Hatches: " .. hatches,
+                color = 3447003,
+                footer = {text = "Renoa Hub * " .. os.date("%Y-%m-%d %H:%M:%S")}
+            }}
+        })
+        process()
+    end
+end)
 
 -- ======================================
 -- HOOK (WORKS WITH ANIMATION TOGGLE)
@@ -272,7 +322,7 @@ if success and mod then
     end)
 
     mod.Play = hookedFunction
-    print("[Webhook] Hook installed! 🔥")
+    print("[Webhook] Hook installed!")
 else
     warn("[Webhook] Failed to hook HatchEgg module!")
 end
@@ -280,9 +330,10 @@ end
 -- ======================================
 -- UI
 -- ======================================
-WebhookTab:CreateSection("✅ Status")
+WebhookTab:CreateSection("Status")
 WebhookTab:CreateLabel("Webhook is Running!")
 WebhookTab:CreateLabel("Tracking: Secret, Celestial, Infinity, Void, Super Legendary")
+WebhookTab:CreateLabel("Online ping: Every 30 minutes")
 WebhookTab:CreateLabel("Ping: "..(DISCORD_USER_ID ~= "" and "ON <@"..DISCORD_USER_ID..">" or "OFF"))
 
-print("Webhook Is Online,Good Luck Hatching Guys! Me (Renoa The Finest) Wishing for our luck")
+print("Webhook Is Online, Good Luck Hatching Guys! Me (Renoa The Finest) Wishing for our luck")
