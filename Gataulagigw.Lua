@@ -241,13 +241,13 @@ local function send(petName,eggName,ex)
 end
 
 -- ======================================
--- ONLINE PING (EVERY 30 MINUTES)
+-- ONLINE PING (EVERY 30 MINUTES - NO PING)
 -- ======================================
 local startTime = os.time()
 
 task.spawn(function()
     while true do
-        task.wait(1800) -- 30 minutes
+        task.wait(1800)
         
         local elapsed = os.time() - startTime
         local hours = math.floor(elapsed / 3600)
@@ -272,16 +272,15 @@ task.spawn(function()
         end
         
         table.insert(queue,{
-            content = (DISCORD_USER_ID ~= "") and "<@"..DISCORD_USER_ID..">" or nil,
             embeds = {{
                 title = "Still Online!",
                 description =
                     "**" .. player.Name .. "** is still online!\n\n" ..
-                    "🟢Online: " .. hours .. "h " .. minutes .. "m\n" ..
-                    "🪙Coins: " .. coins .. "\n" ..
-                    "💎Gems: " .. gems .. "\n" ..
-                    "🟣Bubbles: " .. bubbles .. "\n" ..
-                    "🥚Hatches: " .. hatches,
+                    "Online: " .. hours .. "h " .. minutes .. "m\n" ..
+                    "Coins: " .. coins .. "\n" ..
+                    "Gems: " .. gems .. "\n" ..
+                    "Bubbles: " .. bubbles .. "\n" ..
+                    "Hatches: " .. hatches,
                 color = 3447003,
                 footer = {text = "Renoa Hub * " .. os.date("%Y-%m-%d %H:%M:%S")}
             }}
