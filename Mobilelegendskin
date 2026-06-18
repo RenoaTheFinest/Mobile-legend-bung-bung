@@ -15,15 +15,15 @@ local NetworkRemote = ReplicatedStorage:WaitForChild("Shared")
     :WaitForChild("RemoteFunction")
 
 -- ======================================
--- GET SECRET PETS ONLY
+-- GET UNLOCKED PETS
 -- ======================================
-local function getSecretPets()
+local function getUnlockedPets()
     local pets = {}
     local seen = {}
     local data = LocalData:Get()
     if data and data.Pets then
         for _, pet in pairs(data.Pets) do
-            if pet.Name and not pet.Locked and pet.Rarity == "Secret" and not seen[pet.Name] then
+            if pet.Name and not pet.Locked and not seen[pet.Name] then
                 seen[pet.Name] = true
                 table.insert(pets, pet.Name)
             end
@@ -36,7 +36,7 @@ end
 -- ======================================
 -- SETTINGS
 -- ======================================
-local petList = getSecretPets()
+local petList = getUnlockedPets()
 local selectedPet1 = petList[1] or ""
 local selectedPet2 = petList[1] or ""
 local selectedPet3 = petList[1] or ""
@@ -104,7 +104,7 @@ end
 -- ======================================
 -- UI
 -- ======================================
-PetTab:CreateSection("Rebirth Machine (Secret Only)")
+PetTab:CreateSection("Rebirth Machine")
 
 PetTab:CreateDropdown({
     Name = "Pet 1",
