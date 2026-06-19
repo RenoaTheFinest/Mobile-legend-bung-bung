@@ -1,5 +1,5 @@
 -- ================================================
--- WEBHOOK TAB (WITH SUPER LEGENDARY ENCHANT)
+-- WEBHOOK TAB (WITH SUPER LEGENDARY ENCHANT + HATCH RATE)
 -- ================================================
 repeat task.wait() until getgenv().Window
 local Window = getgenv().Window
@@ -260,7 +260,6 @@ local function send(petName, eggName, ex)
         }
     }
 
-    -- Add enchant field only for Super Legendary
     if rarity == "Super Legendary" and #enchants > 0 then
         table.insert(embed.fields, {
             name = "Ultra Legendary Enchant",
@@ -282,9 +281,20 @@ local function send(petName, eggName, ex)
 end
 
 -- ======================================
--- ONLINE PING (EVERY 30 MINUTES - NO PING)
+-- ONLINE PING (EVERY 30 MINUTES - WITH HATCH RATE)
 -- ======================================
 local startTime = os.time()
+local lastHatches = 0
+local lastPingTime = os.time()
+
+local leaderstats = player:FindFirstChild("leaderstats")
+if leaderstats then
+    for _, stat in ipairs(leaderstats:GetChildren()) do
+        if stat.Name:find("Hatches") then
+            lastHatches = tonumber(stat.Value) or 0
+        end
+    end
+end
 
 task.spawn(function()
     while true do
@@ -300,17 +310,25 @@ task.spawn(function()
         
         local leaderstats = player:FindFirstChild("leaderstats")
         local bubbles = "0"
-        local hatches = "0"
+        local currentHatches = 0
         if leaderstats then
             for _, stat in ipairs(leaderstats:GetChildren()) do
                 if stat.Name:find("Bubble") then
                     bubbles = formatNum(stat.Value)
                 end
                 if stat.Name:find("Hatches") then
-                    hatches = formatNum(stat.Value)
+                    currentHatches = tonumber(stat.Value) or 0
                 end
             end
         end
+        
+        local timeSinceLastPing = (os.time() - lastPingTime) / 60
+        local hatchesSinceLastPing = currentHatches - lastHatches
+        local perMin = timeSinceLastPing > 0 and math.floor(hatchesSinceLastPing / timeSinceLastPing) or 0
+        local perHour = perMin * 60
+        
+        lastHatches = currentHatches
+        lastPingTime = os.time()
         
         table.insert(queue, {
             embeds = {{
@@ -320,8 +338,10 @@ task.spawn(function()
                     "Online: " .. hours .. "h " .. minutes .. "m\n" ..
                     "Coins: " .. coins .. "\n" ..
                     "Gems: " .. gems .. "\n" ..
-                    "Bubbles: " .. bubbles .. "\n" ..
-                    "Hatches: " .. hatches,
+                    "Bubbles: " .. bubbles .. "\n\n" ..
+                    "**Hatch Rate**\n" ..
+                    "Per Minute: " .. perMin .. "\n" ..
+                    "Per Hour: " .. perHour,
                 color = 3447003,
                 footer = {text = "Renoa Hub * " .. os.date("%Y-%m-%d %H:%M:%S")}
             }}
@@ -345,7 +365,6 @@ if success and mod then
             for _, p in ipairs(data.Pets) do
                 local pet = p.Pet or p
                 if pet and pet.Name then
-                    -- Build extra data including all fields for enchant detection
                     local ex = {Shiny = pet.Shiny, Mythic = pet.Mythic, XL = pet.XL}
                     for k, v in pairs(pet) do
                         if k ~= "Name" and k ~= "Shiny" and k ~= "Mythic" and k ~= "XL" then
@@ -374,7 +393,7 @@ end
 WebhookTab:CreateSection("Status")
 WebhookTab:CreateLabel("Webhook is Running!")
 WebhookTab:CreateLabel("Tracking: Secret, Celestial, Infinity, Void, Super Legendary")
-WebhookTab:CreateLabel("Online ping: Every 30 minutes")
+WebhookTab:CreateLabel("Online ping: Every 30 minutes (with hatch rate)")
 WebhookTab:CreateLabel("Ping: "..(DISCORD_USER_ID ~= "" and "ON <@"..DISCORD_USER_ID..">" or "OFF"))
 
 print("Webhook Is Online, Good Luck Hatching Guys! Me (Renoa The Finest) Wishing for our luck")
