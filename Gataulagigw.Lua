@@ -1,5 +1,5 @@
 -- ================================================
--- WEBHOOK TAB (FINAL FIX - WORKS WITH ANIMATION TOGGLE)
+-- WEBHOOK TAB (WITH SUPER LEGENDARY ENCHANT)
 -- ================================================
 repeat task.wait() until getgenv().Window
 local Window = getgenv().Window
@@ -53,6 +53,18 @@ local TRACKED_RARITIES = {
     ["Infinity"] = true,
     ["Void"] = true,
     ["Super Legendary"] = true,
+}
+
+-- ======================================
+-- SUPER LEGENDARY ENCHANT NAMES
+-- ======================================
+local SL_ENCHANTS = {
+    "Luck Boost",
+    "Burst Blessing",
+    "Hatch Blessing",
+    "Bubble Machine",
+    "Infinity Blessing",
+    "Duplication",
 }
 
 -- ======================================
@@ -137,6 +149,19 @@ local function getVariantText(v)
     else return "Normal" end
 end
 
+local function findEnchants(pet)
+    local found = {}
+    for _, enchantName in ipairs(SL_ENCHANTS) do
+        for k, v in pairs(pet) do
+            if type(v) == "string" and v:lower():find(enchantName:lower()) then
+                table.insert(found, enchantName)
+                break
+            end
+        end
+    end
+    return found
+end
+
 -- ======================================
 -- IMAGE (BG.SI CDN)
 -- ======================================
@@ -185,56 +210,72 @@ end
 -- ======================================
 -- SEND
 -- ======================================
-local function send(petName,eggName,ex)
-    local info=Pets[petName]
+local function send(petName, eggName, ex)
+    local info = Pets[petName]
     if not info then return end
 
-    local rarity=info.Rarity
-    if not TRACKED_RARITIES[rarity] then return end
+    local rarity = info.Rarity
+    local tracked = false
+    for r in pairs(TRACKED_RARITIES) do
+        if rarity:find(r) then
+            tracked = true
+            rarity = r
+            break
+        end
+    end
+    if not tracked then return end
 
-    local variant=getVariant(ex)
-    local variantText=getVariantText(variant)
-    local color=(COLORS[rarity] and COLORS[rarity][variant]) or 16777215
+    local variant = getVariant(ex)
+    local variantText = getVariantText(variant)
+    local color = (COLORS[rarity] and COLORS[rarity][variant]) or 16777215
 
-    local coins,gems,opened=getStats(eggName)
-    local odds,exist=getPetExtra(info)
-    local img=getImage(petName, ex)
+    local coins, gems, opened = getStats(eggName)
+    local odds, exist = getPetExtra(info)
+    local img = getImage(petName, ex)
+    local enchants = findEnchants(ex)
 
-    local embed={
-        title="Congrats You Hatched A "..variantText.." "..rarity.." "..petName.."!",
-        color=color,
-
-        fields={
+    local embed = {
+        title = "Congrats You Hatched A "..variantText.." "..rarity.." "..petName.."!",
+        color = color,
+        fields = {
             {
-                name="* User Info",
-                value=
+                name = "* User Info",
+                value =
                     "Name : "..player.Name.."\n"..
                     "Coin : "..coins.."\n"..
                     "Gems : "..gems.."\n"..
                     "Egg Hatched : "..opened,
-                inline=false
+                inline = false
             },
             {
-                name="Pet Info",
-                value=
+                name = "Pet Info",
+                value =
                     "Odds : "..odds.."\n"..
                     "Exist : "..exist,
-                inline=false
+                inline = false
             }
         },
-
-        footer={
-            text="Renoa The Finest has Blessed You! * "..os.date("%Y-%m-%d %H:%M:%S")
+        footer = {
+            text = "Renoa The Finest has Blessed You! * "..os.date("%Y-%m-%d %H:%M:%S")
         }
     }
 
-    if img then
-        embed.thumbnail={url=img}
+    -- Add enchant field only for Super Legendary
+    if rarity == "Super Legendary" and #enchants > 0 then
+        table.insert(embed.fields, {
+            name = "Ultra Legendary Enchant",
+            value = table.concat(enchants, "\n"),
+            inline = false
+        })
     end
 
-    table.insert(queue,{
-        content=(rarity=="Secret") and "<@"..DISCORD_USER_ID..">" or nil,
-        embeds={embed}
+    if img then
+        embed.thumbnail = {url = img}
+    end
+
+    table.insert(queue, {
+        content = (rarity == "Secret") and "<@"..DISCORD_USER_ID..">" or nil,
+        embeds = {embed}
     })
 
     process()
@@ -271,7 +312,7 @@ task.spawn(function()
             end
         end
         
-        table.insert(queue,{
+        table.insert(queue, {
             embeds = {{
                 title = "Still Online!",
                 description =
@@ -304,19 +345,20 @@ if success and mod then
             for _, p in ipairs(data.Pets) do
                 local pet = p.Pet or p
                 if pet and pet.Name then
-                    send(
-                        pet.Name,
-                        data.Name or "Egg",
-                        {Shiny = pet.Shiny, Mythic = pet.Mythic, XL = pet.XL}
-                    )
+                    -- Build extra data including all fields for enchant detection
+                    local ex = {Shiny = pet.Shiny, Mythic = pet.Mythic, XL = pet.XL}
+                    for k, v in pairs(pet) do
+                        if k ~= "Name" and k ~= "Shiny" and k ~= "Mythic" and k ~= "XL" then
+                            ex[k] = v
+                        end
+                    end
+                    send(pet.Name, data.Name or "Egg", ex)
                 end
             end
         end
-        -- Skip animation if hidden
         if getgenv().animationHidden then
             return
         end
-        -- Otherwise play normal animation
         return originalPlay(self, data)
     end)
 
