@@ -1,5 +1,5 @@
 -- ================================================
--- WEBHOOK TAB (WITH SUPER LEGENDARY ENCHANT + HATCH RATE)
+-- WEBHOOK TAB (WITH SUPER LEGENDARY DETECTION)
 -- ================================================
 repeat task.wait() until getgenv().Window
 local Window = getgenv().Window
@@ -53,18 +53,6 @@ local TRACKED_RARITIES = {
     ["Infinity"] = true,
     ["Void"] = true,
     ["Super Legendary"] = true,
-}
-
--- ======================================
--- SUPER LEGENDARY ENCHANT NAMES
--- ======================================
-local SL_ENCHANTS = {
-    "Luck Boost",
-    "Burst Blessing",
-    "Hatch Blessing",
-    "Bubble Machine",
-    "Infinity Blessing",
-    "Duplication",
 }
 
 -- ======================================
@@ -149,19 +137,6 @@ local function getVariantText(v)
     else return "Normal" end
 end
 
-local function findEnchants(pet)
-    local found = {}
-    for _, enchantName in ipairs(SL_ENCHANTS) do
-        for k, v in pairs(pet) do
-            if type(v) == "string" and v:lower():find(enchantName:lower()) then
-                table.insert(found, enchantName)
-                break
-            end
-        end
-    end
-    return found
-end
-
 -- ======================================
 -- IMAGE (BG.SI CDN)
 -- ======================================
@@ -215,6 +190,13 @@ local function send(petName, eggName, ex)
     if not info then return end
 
     local rarity = info.Rarity
+    local isSuper = (ex.Super == true) or (ex.Enchant ~= nil)
+    
+    -- If Legendary with Super flag, treat as Super Legendary
+    if rarity == "Legendary" and isSuper then
+        rarity = "Super Legendary"
+    end
+    
     local tracked = false
     for r in pairs(TRACKED_RARITIES) do
         if rarity:find(r) then
@@ -232,7 +214,6 @@ local function send(petName, eggName, ex)
     local coins, gems, opened = getStats(eggName)
     local odds, exist = getPetExtra(info)
     local img = getImage(petName, ex)
-    local enchants = findEnchants(ex)
 
     local embed = {
         title = "Congrats You Hatched A "..variantText.." "..rarity.." "..petName.."!",
@@ -260,10 +241,11 @@ local function send(petName, eggName, ex)
         }
     }
 
-    if rarity == "Super Legendary" and #enchants > 0 then
+    -- Show enchant for Super Legendary
+    if rarity == "Super Legendary" and ex.Enchant then
         table.insert(embed.fields, {
             name = "Ultra Legendary Enchant",
-            value = table.concat(enchants, "\n"),
+            value = tostring(ex.Enchant),
             inline = false
         })
     end
@@ -366,11 +348,8 @@ if success and mod then
                 local pet = p.Pet or p
                 if pet and pet.Name then
                     local ex = {Shiny = pet.Shiny, Mythic = pet.Mythic, XL = pet.XL}
-                    for k, v in pairs(pet) do
-                        if k ~= "Name" and k ~= "Shiny" and k ~= "Mythic" and k ~= "XL" then
-                            ex[k] = v
-                        end
-                    end
+                    if pet.Super then ex.Super = pet.Super end
+                    if pet.Enchant then ex.Enchant = pet.Enchant end
                     send(pet.Name, data.Name or "Egg", ex)
                 end
             end
