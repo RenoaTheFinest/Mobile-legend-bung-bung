@@ -56,6 +56,19 @@ local TRACKED_RARITIES = {
 }
 
 -- ======================================
+-- ENCHANT DISPLAY NAMES
+-- ======================================
+local ENCHANT_NAMES = {
+    ["super-burst"] = "Burst Blessing",
+    ["super-shiny"] = "Shiny Blessing",
+    ["super-luck"] = "Luck Boost",
+    ["super-hatch"] = "Hatch Blessing",
+    ["super-bubble"] = "Bubble Machine",
+    ["super-infinity"] = "Infinity Blessing",
+    ["super-duplication"] = "Duplication",
+}
+
+-- ======================================
 -- COLORS
 -- ======================================
 local COLORS = {
@@ -192,7 +205,6 @@ local function send(petName, eggName, ex)
     local rarity = info.Rarity
     local isSuper = (ex.Super == true) or (ex.Enchant ~= nil)
     
-    -- If Legendary with Super flag, treat as Super Legendary
     if rarity == "Legendary" and isSuper then
         rarity = "Super Legendary"
     end
@@ -227,13 +239,6 @@ local function send(petName, eggName, ex)
                     "Gems : "..gems.."\n"..
                     "Egg Hatched : "..opened,
                 inline = false
-            },
-            {
-                name = "Pet Info",
-                value =
-                    "Odds : "..odds.."\n"..
-                    "Exist : "..exist,
-                inline = false
             }
         },
         footer = {
@@ -241,21 +246,31 @@ local function send(petName, eggName, ex)
         }
     }
 
-    -- Show enchant for Super Legendary
+    -- Enchant field between User Info and Pet Info
     if rarity == "Super Legendary" and ex.Enchant then
+        local displayEnchant = ENCHANT_NAMES[ex.Enchant] or ex.Enchant
         table.insert(embed.fields, {
             name = "Ultra Legendary Enchant",
-            value = tostring(ex.Enchant),
+            value = displayEnchant,
             inline = false
         })
     end
+
+    -- Pet Info
+    table.insert(embed.fields, {
+        name = "Pet Info",
+        value =
+            "Odds : "..odds.."\n"..
+            "Exist : "..exist,
+        inline = false
+    })
 
     if img then
         embed.thumbnail = {url = img}
     end
 
     table.insert(queue, {
-        content = (rarity == "Secret") and "<@"..DISCORD_USER_ID..">" or nil,
+        content = (rarity == "Secret" or rarity == "Super Legendary") and "<@"..DISCORD_USER_ID..">" or nil,
         embeds = {embed}
     })
 
@@ -333,7 +348,7 @@ task.spawn(function()
 end)
 
 -- ======================================
--- HOOK (WORKS WITH ANIMATION TOGGLE)
+-- HOOK (WITH SUPER LEGENDARY DETECTION)
 -- ======================================
 local success, mod = pcall(function()
     return require(ReplicatedStorage.Client.Effects.HatchEgg)
@@ -349,14 +364,22 @@ if success and mod then
                 if pet and pet.Name then
                     local ex = {Shiny = pet.Shiny, Mythic = pet.Mythic, XL = pet.XL}
                     if pet.Super then ex.Super = pet.Super end
-                    if pet.Enchant then ex.Enchant = pet.Enchant end
+                    if pet.Enchants then
+                        local enchantNames = {}
+                        for _, enchant in pairs(pet.Enchants) do
+                            if enchant.Id then
+                                table.insert(enchantNames, enchant.Id)
+                            end
+                        end
+                        if #enchantNames > 0 then
+                            ex.Enchant = table.concat(enchantNames, ", ")
+                        end
+                    end
                     send(pet.Name, data.Name or "Egg", ex)
                 end
             end
         end
-        if getgenv().animationHidden then
-            return
-        end
+        if getgenv().animationHidden then return end
         return originalPlay(self, data)
     end)
 
