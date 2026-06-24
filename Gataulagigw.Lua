@@ -221,58 +221,94 @@ local function send(petName, eggName, ex)
 
     local variant = getVariant(ex)
     local variantText = getVariantText(variant)
-    local color = (COLORS[rarity] and COLORS[rarity][variant]) or 16777215
-
     local coins, gems, opened = getStats(eggName)
     local odds, exist = getPetExtra(info)
     local img = getImage(petName, ex)
 
-    local embed = {
-        title = "Congrats You Hatched A "..variantText.." "..rarity.." "..petName.."!",
-        color = color,
-        fields = {
-            {
-                name = "* User Info",
-                value =
-                    "Name : "..player.Name.."\n"..
-                    "Coin : "..coins.."\n"..
-                    "Gems : "..gems.."\n"..
-                    "Egg Hatched : "..opened,
-                inline = false
+    -- Super Legendary layout
+    if rarity == "Super Legendary" then
+        local color = 0x1E90FF
+        if ex.Shiny and ex.Mythic then color = 0x00FF00
+        elseif ex.Shiny then color = 0xFFD700
+        elseif ex.Mythic then color = 0x8B00FF end
+        
+        local enchantDisplay = ex.Enchant or "None"
+        local displayEnchant = ENCHANT_NAMES[enchantDisplay] or enchantDisplay
+        
+        local embed = {
+            title = "Congrats You Hatched A "..variantText.." Super Legendary "..petName.."!",
+            color = color,
+            fields = {
+                {
+                    name = "* User Info",
+                    value =
+                        "Name : "..player.Name.."\n"..
+                        "Coin : "..coins.."\n"..
+                        "Gems : "..gems.."\n"..
+                        "Egg Hatched : "..opened,
+                    inline = false
+                },
+                {
+                    name = "Ultra Legendary Enchant",
+                    value = displayEnchant,
+                    inline = false
+                },
+                {
+                    name = "Pet Info",
+                    value =
+                        "Odds : "..odds.."\n"..
+                        "Exist : "..exist,
+                    inline = false
+                }
+            },
+            footer = {
+                text = "Renoa The Finest has Blessed You! * "..os.date("%Y-%m-%d %H:%M:%S")
             }
-        },
-        footer = {
-            text = "Renoa The Finest has Blessed You! * "..os.date("%Y-%m-%d %H:%M:%S")
         }
-    }
-
-    -- Enchant field between User Info and Pet Info
-    if rarity == "Super Legendary" and ex.Enchant then
-        local displayEnchant = ENCHANT_NAMES[ex.Enchant] or ex.Enchant
-        table.insert(embed.fields, {
-            name = "Ultra Legendary Enchant",
-            value = displayEnchant,
-            inline = false
+        
+        if img then embed.thumbnail = {url = img} end
+        
+        table.insert(queue, {
+            content = "<@"..DISCORD_USER_ID..">",
+            embeds = {embed}
+        })
+    else
+        -- Normal layout
+        local color = (COLORS[rarity] and COLORS[rarity][variant]) or 16777215
+        
+        local embed = {
+            title = "Congrats You Hatched A "..variantText.." "..rarity.." "..petName.."!",
+            color = color,
+            fields = {
+                {
+                    name = "* User Info",
+                    value =
+                        "Name : "..player.Name.."\n"..
+                        "Coin : "..coins.."\n"..
+                        "Gems : "..gems.."\n"..
+                        "Egg Hatched : "..opened,
+                    inline = false
+                },
+                {
+                    name = "Pet Info",
+                    value =
+                        "Odds : "..odds.."\n"..
+                        "Exist : "..exist,
+                    inline = false
+                }
+            },
+            footer = {
+                text = "Renoa The Finest has Blessed You! * "..os.date("%Y-%m-%d %H:%M:%S")
+            }
+        }
+        
+        if img then embed.thumbnail = {url = img} end
+        
+        table.insert(queue, {
+            content = (rarity == "Secret") and "<@"..DISCORD_USER_ID..">" or nil,
+            embeds = {embed}
         })
     end
-
-    -- Pet Info
-    table.insert(embed.fields, {
-        name = "Pet Info",
-        value =
-            "Odds : "..odds.."\n"..
-            "Exist : "..exist,
-        inline = false
-    })
-
-    if img then
-        embed.thumbnail = {url = img}
-    end
-
-    table.insert(queue, {
-        content = (rarity == "Secret" or rarity == "Super Legendary") and "<@"..DISCORD_USER_ID..">" or nil,
-        embeds = {embed}
-    })
 
     process()
 end
