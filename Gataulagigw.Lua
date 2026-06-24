@@ -1,5 +1,5 @@
 -- ================================================
--- WEBHOOK TAB (WITH SUPER LEGENDARY DETECTION)
+-- WEBHOOK TAB (WITH SUPER LEGENDARY DEBUG)
 -- ================================================
 repeat task.wait() until getgenv().Window
 local Window = getgenv().Window
@@ -205,6 +205,18 @@ local function send(petName, eggName, ex)
     local rarity = info.Rarity
     local isSuper = (ex.Super == true) or (ex.Enchant ~= nil)
     
+    -- DEBUG
+    if isSuper then
+        print("\n=== SUPER DEBUG ===")
+        print("Pet:", petName)
+        print("Super:", ex.Super)
+        print("Enchant:", ex.Enchant)
+        print("All ex fields:")
+        for k, v in pairs(ex) do
+            print("  ", k, "=", tostring(v))
+        end
+    end
+    
     if rarity == "Legendary" and isSuper then
         rarity = "Super Legendary"
     end
@@ -225,7 +237,6 @@ local function send(petName, eggName, ex)
     local odds, exist = getPetExtra(info)
     local img = getImage(petName, ex)
 
-    -- Super Legendary layout
     if rarity == "Super Legendary" then
         local color = 0x1E90FF
         if ex.Shiny and ex.Mythic then color = 0x00FF00
@@ -273,7 +284,6 @@ local function send(petName, eggName, ex)
             embeds = {embed}
         })
     else
-        -- Normal layout
         local color = (COLORS[rarity] and COLORS[rarity][variant]) or 16777215
         
         local embed = {
