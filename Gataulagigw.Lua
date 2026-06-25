@@ -1,5 +1,5 @@
 -- ================================================
--- WEBHOOK TAB (WITH SUPER LEGENDARY DEEP DEBUG)
+-- WEBHOOK TAB (INVENTORY SCANNER FOR SUPER LEGENDARY)
 -- ================================================
 repeat task.wait() until getgenv().Window
 local Window = getgenv().Window
@@ -196,18 +196,13 @@ local function process()
 end
 
 -- ======================================
--- SEND
+-- SEND (for regular pets)
 -- ======================================
 local function send(petName, eggName, ex)
     local info = Pets[petName]
     if not info then return end
 
     local rarity = info.Rarity
-    local isSuper = (ex.Super == true) or (ex.Enchant ~= nil)
-    
-    if rarity == "Legendary" and isSuper then
-        rarity = "Super Legendary"
-    end
     
     local tracked = false
     for r in pairs(TRACKED_RARITIES) do
@@ -221,92 +216,43 @@ local function send(petName, eggName, ex)
 
     local variant = getVariant(ex)
     local variantText = getVariantText(variant)
+    local color = (COLORS[rarity] and COLORS[rarity][variant]) or 16777215
     local coins, gems, opened = getStats(eggName)
     local odds, exist = getPetExtra(info)
     local img = getImage(petName, ex)
 
-    if rarity == "Super Legendary" then
-        local color = 0x1E90FF
-        if ex.Shiny and ex.Mythic then color = 0x00FF00
-        elseif ex.Shiny then color = 0xFFD700
-        elseif ex.Mythic then color = 0x8B00FF end
-        
-        local enchantDisplay = ex.Enchant or "None"
-        local displayEnchant = ENCHANT_NAMES[enchantDisplay] or enchantDisplay
-        
-        local embed = {
-            title = "Congrats You Hatched A "..variantText.." Super Legendary "..petName.."!",
-            color = color,
-            fields = {
-                {
-                    name = "* User Info",
-                    value =
-                        "Name : "..player.Name.."\n"..
-                        "Coin : "..coins.."\n"..
-                        "Gems : "..gems.."\n"..
-                        "Egg Hatched : "..opened,
-                    inline = false
-                },
-                {
-                    name = "Ultra Legendary Enchant",
-                    value = displayEnchant,
-                    inline = false
-                },
-                {
-                    name = "Pet Info",
-                    value =
-                        "Odds : "..odds.."\n"..
-                        "Exist : "..exist,
-                    inline = false
-                }
+    local embed = {
+        title = "Congrats You Hatched A "..variantText.." "..rarity.." "..petName.."!",
+        color = color,
+        fields = {
+            {
+                name = "* User Info",
+                value =
+                    "Name : "..player.Name.."\n"..
+                    "Coin : "..coins.."\n"..
+                    "Gems : "..gems.."\n"..
+                    "Egg Hatched : "..opened,
+                inline = false
             },
-            footer = {
-                text = "Renoa The Finest has Blessed You! * "..os.date("%Y-%m-%d %H:%M:%S")
+            {
+                name = "Pet Info",
+                value =
+                    "Odds : "..odds.."\n"..
+                    "Exist : "..exist,
+                inline = false
             }
+        },
+        footer = {
+            text = "Renoa The Finest has Blessed You! * "..os.date("%Y-%m-%d %H:%M:%S")
         }
-        
-        if img then embed.thumbnail = {url = img} end
-        
-        table.insert(queue, {
-            content = "<@"..DISCORD_USER_ID..">",
-            embeds = {embed}
-        })
-    else
-        local color = (COLORS[rarity] and COLORS[rarity][variant]) or 16777215
-        
-        local embed = {
-            title = "Congrats You Hatched A "..variantText.." "..rarity.." "..petName.."!",
-            color = color,
-            fields = {
-                {
-                    name = "* User Info",
-                    value =
-                        "Name : "..player.Name.."\n"..
-                        "Coin : "..coins.."\n"..
-                        "Gems : "..gems.."\n"..
-                        "Egg Hatched : "..opened,
-                    inline = false
-                },
-                {
-                    name = "Pet Info",
-                    value =
-                        "Odds : "..odds.."\n"..
-                        "Exist : "..exist,
-                    inline = false
-                }
-            },
-            footer = {
-                text = "Renoa The Finest has Blessed You! * "..os.date("%Y-%m-%d %H:%M:%S")
-            }
-        }
-        
-        if img then embed.thumbnail = {url = img} end
-        
-        table.insert(queue, {
-            content = (rarity == "Secret") and "<@"..DISCORD_USER_ID..">" or nil,
-            embeds = {embed}
-        })
-    end
+    }
+
+    if img then embed.thumbnail = {url = img} end
+
+    table.insert(queue, {
+        content = (rarity == "Secret") and "<@"..DISCORD_USER_ID..">" or nil,
+        embeds = {embed}
+    })
 
     process()
 end
@@ -382,7 +328,7 @@ task.spawn(function()
 end)
 
 -- ======================================
--- HOOK (WITH SUPER LEGENDARY DEEP DEBUG)
+-- HOOK (REGULAR PETS ONLY)
 -- ======================================
 local success, mod = pcall(function()
     return require(ReplicatedStorage.Client.Effects.HatchEgg)
@@ -395,40 +341,8 @@ if success and mod then
         if type(data) == "table" and data.Pets then
             for _, p in ipairs(data.Pets) do
                 local pet = p.Pet or p
-                if pet and pet.Name then
+                if pet and pet.Name and not pet.Super then
                     local ex = {Shiny = pet.Shiny, Mythic = pet.Mythic, XL = pet.XL}
-                    
-                    -- Deep debug for Super Legendary
-                    if pet.Super then
-                        print("\n=== SUPER HATCH DATA ===")
-                        print("Pet:", pet.Name)
-                        for k, v in pairs(pet) do
-                            print(k, "=", tostring(v), "| type:", type(v))
-                            if type(v) == "table" then
-                                for k2, v2 in pairs(v) do
-                                    print("  ", k2, "=", tostring(v2), "| type:", type(v2))
-                                    if type(v2) == "table" then
-                                        for k3, v3 in pairs(v2) do
-                                            print("    ", k3, "=", tostring(v3))
-                                        end
-                                    end
-                                end
-                            end
-                        end
-                    end
-                    
-                    if pet.Super then ex.Super = pet.Super end
-                    if pet.Enchants then
-                        local enchantNames = {}
-                        for _, enchant in pairs(pet.Enchants) do
-                            if enchant.Id then
-                                table.insert(enchantNames, enchant.Id)
-                            end
-                        end
-                        if #enchantNames > 0 then
-                            ex.Enchant = table.concat(enchantNames, ", ")
-                        end
-                    end
                     send(pet.Name, data.Name or "Egg", ex)
                 end
             end
@@ -442,6 +356,83 @@ if success and mod then
 else
     warn("[Webhook] Failed to hook HatchEgg module!")
 end
+
+-- ======================================
+-- SUPER LEGENDARY INVENTORY SCANNER
+-- ======================================
+local knownSL = {}
+
+-- Load existing Super Legendary pets
+local initData = LocalData:Get()
+if initData and initData.Pets then
+    for _, pet in pairs(initData.Pets) do
+        if pet.Super then
+            knownSL[pet.Id] = true
+        end
+    end
+end
+
+task.spawn(function()
+    while true do
+        task.wait(10)
+        
+        local data = LocalData:Get()
+        if data and data.Pets then
+            for _, pet in pairs(data.Pets) do
+                if pet.Super and not knownSL[pet.Id] then
+                    knownSL[pet.Id] = true
+                    
+                    local enchantNames = {}
+                    if pet.Enchants then
+                        for _, enchant in pairs(pet.Enchants) do
+                            if enchant.Id then
+                                table.insert(enchantNames, enchant.Id)
+                            end
+                        end
+                    end
+                    local enchantStr = #enchantNames > 0 and table.concat(enchantNames, ", ") or "None"
+                    
+                    local displayEnchants = {}
+                    for _, id in ipairs(enchantNames) do
+                        table.insert(displayEnchants, ENCHANT_NAMES[id] or id)
+                    end
+                    local displayStr = #displayEnchants > 0 and table.concat(displayEnchants, ", ") or "None"
+                    
+                    local variant = "Normal"
+                    if pet.Shiny and pet.Mythic then variant = "Shiny Mythic"
+                    elseif pet.Shiny then variant = "Shiny"
+                    elseif pet.Mythic then variant = "Mythic" end
+                    
+                    local embed = {
+                        title = "Congrats You Hatched A "..variant.." Super Legendary "..pet.Name.."!",
+                        color = 0x1E90FF,
+                        fields = {
+                            {
+                                name = "* User Info",
+                                value = "Name : "..player.Name,
+                                inline = false
+                            },
+                            {
+                                name = "Ultra Legendary Enchant",
+                                value = displayStr,
+                                inline = false
+                            }
+                        },
+                        footer = {
+                            text = "Renoa The Finest has Blessed You! * "..os.date("%Y-%m-%d %H:%M:%S")
+                        }
+                    }
+                    
+                    table.insert(queue, {
+                        content = "<@"..DISCORD_USER_ID..">",
+                        embeds = {embed}
+                    })
+                    process()
+                end
+            end
+        end
+    end
+end)
 
 -- ======================================
 -- UI
