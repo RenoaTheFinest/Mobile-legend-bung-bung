@@ -1,5 +1,5 @@
 -- ================================================
--- WEBHOOK TAB (WITH SUPER LEGENDARY DEBUG)
+-- WEBHOOK TAB (WITH SUPER LEGENDARY DEEP DEBUG)
 -- ================================================
 repeat task.wait() until getgenv().Window
 local Window = getgenv().Window
@@ -205,18 +205,6 @@ local function send(petName, eggName, ex)
     local rarity = info.Rarity
     local isSuper = (ex.Super == true) or (ex.Enchant ~= nil)
     
-    -- DEBUG
-    if isSuper then
-        print("\n=== SUPER DEBUG ===")
-        print("Pet:", petName)
-        print("Super:", ex.Super)
-        print("Enchant:", ex.Enchant)
-        print("All ex fields:")
-        for k, v in pairs(ex) do
-            print("  ", k, "=", tostring(v))
-        end
-    end
-    
     if rarity == "Legendary" and isSuper then
         rarity = "Super Legendary"
     end
@@ -394,7 +382,7 @@ task.spawn(function()
 end)
 
 -- ======================================
--- HOOK (WITH SUPER LEGENDARY DETECTION)
+-- HOOK (WITH SUPER LEGENDARY DEEP DEBUG)
 -- ======================================
 local success, mod = pcall(function()
     return require(ReplicatedStorage.Client.Effects.HatchEgg)
@@ -409,6 +397,26 @@ if success and mod then
                 local pet = p.Pet or p
                 if pet and pet.Name then
                     local ex = {Shiny = pet.Shiny, Mythic = pet.Mythic, XL = pet.XL}
+                    
+                    -- Deep debug for Super Legendary
+                    if pet.Super then
+                        print("\n=== SUPER HATCH DATA ===")
+                        print("Pet:", pet.Name)
+                        for k, v in pairs(pet) do
+                            print(k, "=", tostring(v), "| type:", type(v))
+                            if type(v) == "table" then
+                                for k2, v2 in pairs(v) do
+                                    print("  ", k2, "=", tostring(v2), "| type:", type(v2))
+                                    if type(v2) == "table" then
+                                        for k3, v3 in pairs(v2) do
+                                            print("    ", k3, "=", tostring(v3))
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                    
                     if pet.Super then ex.Super = pet.Super end
                     if pet.Enchants then
                         local enchantNames = {}
