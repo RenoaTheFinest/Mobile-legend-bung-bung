@@ -1,5 +1,5 @@
 -- ================================================
--- WEBHOOK TAB (INVENTORY SCANNER FOR SUPER LEGENDARY)
+-- WEBHOOK TAB (DUAL WEBHOOK + HIDE USERNAME)
 -- ================================================
 repeat task.wait() until getgenv().Window
 local Window = getgenv().Window
@@ -11,12 +11,13 @@ local WebhookTab = Window:CreateTab("Webhook", nil)
 -- ======================================
 local config = getgenv().config or {}
 
-if not config.PRIVATE_WEBHOOK_URL or config.PRIVATE_WEBHOOK_URL == "" then
+if not config.HATCH_WEBHOOK_URL or config.HATCH_WEBHOOK_URL == "" then
     WebhookTab:CreateSection("Webhook Not Configured")
-    WebhookTab:CreateLabel("Please set your webhook in the config before executing!")
+    WebhookTab:CreateLabel("Please set your webhooks in the config before executing!")
     WebhookTab:CreateLabel("Add this BEFORE the loadstring in your executor:")
     WebhookTab:CreateLabel([[getgenv().config = {
-    PRIVATE_WEBHOOK_URL = "Put your webhook URL here!",
+    HATCH_WEBHOOK_URL = "Put your hatch webhook URL here!",
+    ONLINE_WEBHOOK_URL = "Put your online ping webhook URL here!",
     DISCORD_USER_ID = "Put your Discord user ID here!"
 }]])
     return
@@ -34,7 +35,8 @@ local player = Players.LocalPlayer
 -- ======================================
 -- WEBHOOK (from config)
 -- ======================================
-local WEBHOOK_URL = config.PRIVATE_WEBHOOK_URL
+local HATCH_WEBHOOK_URL = config.HATCH_WEBHOOK_URL
+local ONLINE_WEBHOOK_URL = config.ONLINE_WEBHOOK_URL or config.HATCH_WEBHOOK_URL
 local DISCORD_USER_ID = config.DISCORD_USER_ID or ""
 
 local request = http_request or request or (syn and syn.request)
@@ -43,6 +45,11 @@ if not request then
     WebhookTab:CreateLabel("Your executor doesn't support webhooks!")
     return
 end
+
+-- ======================================
+-- SETTINGS
+-- ======================================
+local hideUsername = false
 
 -- ======================================
 -- FILTER
@@ -108,7 +115,6 @@ end
 local function getStats(eggName)
     local data = LocalData:Get()
     if not data then return "0","0","0" end
-
     return
         formatNum(data.Coins or 0),
         formatNum(data.Gems or 0),
@@ -121,18 +127,13 @@ end
 local function getPetExtra(petInfo)
     local odds="Unknown"
     local exist="Unknown"
-
     if petInfo.Chance then
         local calc=math.floor(1/petInfo.Chance)
         if calc>0 then odds="1/"..formatExist(calc) end
     elseif petInfo.Odds then
         odds="1/"..formatExist(petInfo.Odds)
     end
-
-    if petInfo.Exists then
-        exist=formatExist(petInfo.Exists)
-    end
-
+    if petInfo.Exists then exist=formatExist(petInfo.Exists) end
     return odds,exist
 end
 
@@ -155,43 +156,38 @@ end
 -- ======================================
 local function getImage(petName, ex)
     local n = petName:lower():gsub("%s+", "-"):gsub("[^%w%-]", "")
-    
     local prefix = ""
-    if ex.Shiny and ex.Mythic then
-        prefix = "shiny-mythic-"
-    elseif ex.Shiny then
-        prefix = "shiny-"
-    elseif ex.Mythic then
-        prefix = "mythic-"
-    end
-    
+    if ex.Shiny and ex.Mythic then prefix = "shiny-mythic-"
+    elseif ex.Shiny then prefix = "shiny-"
+    elseif ex.Mythic then prefix = "mythic-" end
     return "https://cdn.bgsi.gg/items/" .. prefix .. n .. ".png"
 end
 
 -- ======================================
 -- WEBHOOK SYSTEM
 -- ======================================
-local queue={}
-local processing=false
+local hatchQueue={}
+local onlineQueue={}
+local hatchProcessing=false
+local onlineProcessing=false
 
-local function process()
-    if processing then return end
-    processing=true
-
+local function processQueue(queue, processingFlag, url)
+    if processingFlag then return end
+    processingFlag = true
     task.spawn(function()
-        while #queue>0 do
-            local p=table.remove(queue,1)
+        while #queue > 0 do
+            local p = table.remove(queue, 1)
             pcall(function()
                 request({
-                    Url=WEBHOOK_URL,
-                    Method="POST",
-                    Headers={["Content-Type"]="application/json"},
-                    Body=HttpService:JSONEncode(p)
+                    Url = url,
+                    Method = "POST",
+                    Headers = {["Content-Type"] = "application/json"},
+                    Body = HttpService:JSONEncode(p)
                 })
             end)
             task.wait(1)
         end
-        processing=false
+        processingFlag = false
     end)
 end
 
@@ -203,14 +199,9 @@ local function send(petName, eggName, ex)
     if not info then return end
 
     local rarity = info.Rarity
-    
     local tracked = false
     for r in pairs(TRACKED_RARITIES) do
-        if rarity:find(r) then
-            tracked = true
-            rarity = r
-            break
-        end
+        if rarity:find(r) then tracked = true; rarity = r; break end
     end
     if not tracked then return end
 
@@ -220,6 +211,7 @@ local function send(petName, eggName, ex)
     local coins, gems, opened = getStats(eggName)
     local odds, exist = getPetExtra(info)
     local img = getImage(petName, ex)
+    local displayName = hideUsername and "Hidden" or player.Name
 
     local embed = {
         title = "Congrats You Hatched A "..variantText.." "..rarity.." "..petName.."!",
@@ -228,7 +220,7 @@ local function send(petName, eggName, ex)
             {
                 name = "* User Info",
                 value =
-                    "Name : "..player.Name.."\n"..
+                    "Name : "..displayName.."\n"..
                     "Coin : "..coins.."\n"..
                     "Gems : "..gems.."\n"..
                     "Egg Hatched : "..opened,
@@ -236,29 +228,23 @@ local function send(petName, eggName, ex)
             },
             {
                 name = "Pet Info",
-                value =
-                    "Odds : "..odds.."\n"..
-                    "Exist : "..exist,
+                value = "Odds : "..odds.."\nExist : "..exist,
                 inline = false
             }
         },
-        footer = {
-            text = "Renoa The Finest has Blessed You! * "..os.date("%Y-%m-%d %H:%M:%S")
-        }
+        footer = {text = "Renoa The Finest has Blessed You! * "..os.date("%Y-%m-%d %H:%M:%S")}
     }
-
     if img then embed.thumbnail = {url = img} end
 
-    table.insert(queue, {
+    table.insert(hatchQueue, {
         content = (rarity == "Secret") and "<@"..DISCORD_USER_ID..">" or nil,
         embeds = {embed}
     })
-
-    process()
+    processQueue(hatchQueue, hatchProcessing, HATCH_WEBHOOK_URL)
 end
 
 -- ======================================
--- ONLINE PING (EVERY 30 MINUTES - WITH HATCH RATE)
+-- ONLINE PING
 -- ======================================
 local startTime = os.time()
 local lastHatches = 0
@@ -276,54 +262,43 @@ end
 task.spawn(function()
     while true do
         task.wait(1800)
+        if ONLINE_WEBHOOK_URL == "" then continue end
         
         local elapsed = os.time() - startTime
         local hours = math.floor(elapsed / 3600)
         local minutes = math.floor((elapsed % 3600) / 60)
-        
         local data = LocalData:Get()
         local coins = data and formatNum(data.Coins or 0) or "0"
         local gems = data and formatNum(data.Gems or 0) or "0"
-        
         local leaderstats = player:FindFirstChild("leaderstats")
         local bubbles = "0"
         local currentHatches = 0
         if leaderstats then
             for _, stat in ipairs(leaderstats:GetChildren()) do
-                if stat.Name:find("Bubble") then
-                    bubbles = formatNum(stat.Value)
-                end
-                if stat.Name:find("Hatches") then
-                    currentHatches = tonumber(stat.Value) or 0
-                end
+                if stat.Name:find("Bubble") then bubbles = formatNum(stat.Value) end
+                if stat.Name:find("Hatches") then currentHatches = tonumber(stat.Value) or 0 end
             end
         end
-        
         local timeSinceLastPing = (os.time() - lastPingTime) / 60
         local hatchesSinceLastPing = currentHatches - lastHatches
         local perMin = timeSinceLastPing > 0 and math.floor(hatchesSinceLastPing / timeSinceLastPing) or 0
         local perHour = perMin * 60
-        
         lastHatches = currentHatches
         lastPingTime = os.time()
-        
-        table.insert(queue, {
+
+        table.insert(onlineQueue, {
             embeds = {{
                 title = "Still Online!",
                 description =
                     "**" .. player.Name .. "** is still online!\n\n" ..
                     "Online: " .. hours .. "h " .. minutes .. "m\n" ..
-                    "Coins: " .. coins .. "\n" ..
-                    "Gems: " .. gems .. "\n" ..
-                    "Bubbles: " .. bubbles .. "\n\n" ..
-                    "**Hatch Rate**\n" ..
-                    "Per Minute: " .. perMin .. "\n" ..
-                    "Per Hour: " .. perHour,
+                    "Coins: " .. coins .. "\nGems: " .. gems .. "\nBubbles: " .. bubbles .. "\n\n" ..
+                    "**Hatch Rate**\nPer Minute: " .. perMin .. "\nPer Hour: " .. perHour,
                 color = 3447003,
                 footer = {text = "Renoa Hub * " .. os.date("%Y-%m-%d %H:%M:%S")}
             }}
         })
-        process()
+        processQueue(onlineQueue, onlineProcessing, ONLINE_WEBHOOK_URL)
     end
 end)
 
@@ -333,10 +308,8 @@ end)
 local success, mod = pcall(function()
     return require(ReplicatedStorage.Client.Effects.HatchEgg)
 end)
-
 if success and mod then
     local originalPlay = mod.Play
-
     local hookedFunction = newcclosure(function(self, data)
         if type(data) == "table" and data.Pets then
             for _, p in ipairs(data.Pets) do
@@ -350,84 +323,60 @@ if success and mod then
         if getgenv().animationHidden then return end
         return originalPlay(self, data)
     end)
-
     mod.Play = hookedFunction
-    print("[Webhook] Hook installed!")
-else
-    warn("[Webhook] Failed to hook HatchEgg module!")
 end
 
 -- ======================================
 -- SUPER LEGENDARY INVENTORY SCANNER
 -- ======================================
 local knownSL = {}
-
--- Load existing Super Legendary pets
 local initData = LocalData:Get()
 if initData and initData.Pets then
     for _, pet in pairs(initData.Pets) do
-        if pet.Super then
-            knownSL[pet.Id] = true
-        end
+        if pet.Super then knownSL[pet.Id] = true end
     end
 end
 
 task.spawn(function()
     while true do
         task.wait(10)
-        
         local data = LocalData:Get()
         if data and data.Pets then
             for _, pet in pairs(data.Pets) do
                 if pet.Super and not knownSL[pet.Id] then
                     knownSL[pet.Id] = true
-                    
                     local enchantNames = {}
                     if pet.Enchants then
                         for _, enchant in pairs(pet.Enchants) do
-                            if enchant.Id then
-                                table.insert(enchantNames, enchant.Id)
-                            end
+                            if enchant.Id then table.insert(enchantNames, enchant.Id) end
                         end
                     end
-                    local enchantStr = #enchantNames > 0 and table.concat(enchantNames, ", ") or "None"
-                    
                     local displayEnchants = {}
                     for _, id in ipairs(enchantNames) do
                         table.insert(displayEnchants, ENCHANT_NAMES[id] or id)
                     end
                     local displayStr = #displayEnchants > 0 and table.concat(displayEnchants, ", ") or "None"
-                    
                     local variant = "Normal"
                     if pet.Shiny and pet.Mythic then variant = "Shiny Mythic"
                     elseif pet.Shiny then variant = "Shiny"
                     elseif pet.Mythic then variant = "Mythic" end
-                    
+                    local displayName = hideUsername and "Hidden" or player.Name
+
                     local embed = {
                         title = "Congrats You Hatched A "..variant.." Super Legendary "..pet.Name.."!",
                         color = 0x1E90FF,
                         fields = {
-                            {
-                                name = "* User Info",
-                                value = "Name : "..player.Name,
-                                inline = false
-                            },
-                            {
-                                name = "Ultra Legendary Enchant",
-                                value = displayStr,
-                                inline = false
-                            }
+                            {name = "* User Info", value = "Name : "..displayName, inline = false},
+                            {name = "Ultra Legendary Enchant", value = displayStr, inline = false}
                         },
-                        footer = {
-                            text = "Renoa The Finest has Blessed You! * "..os.date("%Y-%m-%d %H:%M:%S")
-                        }
+                        footer = {text = "Renoa The Finest has Blessed You! * "..os.date("%Y-%m-%d %H:%M:%S")}
                     }
-                    
-                    table.insert(queue, {
-                        content = "<@"..DISCORD_USER_ID..">",
-                        embeds = {embed}
-                    })
-                    process()
+                    local pingMsg = "<@"..DISCORD_USER_ID..">"
+                    if displayStr ~= "None" then
+                        pingMsg = "<@"..DISCORD_USER_ID..">, You Got "..displayStr.."!"
+                    end
+                    table.insert(hatchQueue, {content = pingMsg, embeds = {embed}})
+                    processQueue(hatchQueue, hatchProcessing, HATCH_WEBHOOK_URL)
                 end
             end
         end
@@ -437,10 +386,21 @@ end)
 -- ======================================
 -- UI
 -- ======================================
+WebhookTab:CreateSection("Settings")
+
+WebhookTab:CreateToggle({
+    Name = "Hide Username (shows 'Hidden')",
+    CurrentValue = false,
+    Callback = function(v)
+        hideUsername = v
+    end
+})
+
 WebhookTab:CreateSection("Status")
-WebhookTab:CreateLabel("Webhook is Running!")
+WebhookTab:CreateLabel("Hatch Webhook: " .. (HATCH_WEBHOOK_URL ~= "" and "Connected" or "Not Set"))
+WebhookTab:CreateLabel("Online Webhook: " .. (ONLINE_WEBHOOK_URL ~= "" and "Connected" or "Not Set"))
 WebhookTab:CreateLabel("Tracking: Secret, Celestial, Infinity, Void, Super Legendary")
-WebhookTab:CreateLabel("Online ping: Every 30 minutes (with hatch rate)")
+WebhookTab:CreateLabel("Online ping: Every 30 minutes")
 WebhookTab:CreateLabel("Ping: "..(DISCORD_USER_ID ~= "" and "ON <@"..DISCORD_USER_ID..">" or "OFF"))
 
 print("Webhook Is Online, Good Luck Hatching Guys! Me (Renoa The Finest) Wishing for our luck")
